@@ -9,6 +9,8 @@ interface UseAudioConfig {
   onConnectionChange?: (isConnected: boolean) => void;
   // 🔥 新增：角色切换标志 ref，用于在切换期间忽略错误
   isSwitchingRef?: React.RefObject<boolean>;
+  // 🔥 新增：应用是否在后台的标志 ref，用于在应用进入后台期间忽略 WebSocket 错误
+  isInBackgroundRef?: React.RefObject<boolean>;
 }
 
 export interface UseAudioReturn {
@@ -102,6 +104,11 @@ export const useAudio = (config: UseAudioConfig): UseAudioReturn => {
         // 🔥 修复：在角色切换期间忽略错误，避免显示"连接错误"
         if (config.isSwitchingRef?.current) {
           console.log('🔄 角色切换中，忽略 WebSocket 错误:', error);
+          return;
+        }
+        // 🔥 修复：在应用进入后台期间忽略错误（如拍照时）
+        if (config.isInBackgroundRef?.current) {
+          console.log('📷 应用处于后台，忽略 WebSocket 错误:', error);
           return;
         }
         console.error('❌ 音频服务错误:', error);
