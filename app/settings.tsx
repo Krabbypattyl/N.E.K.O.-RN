@@ -169,9 +169,9 @@ export default function SettingsScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>API Provider</Text>
                 <View style={styles.pickerContainer}>
-                  {coreProviders.map(provider => (
+                  {coreProviders.map((provider, index) => (
                     <TouchableOpacity
-                      key={provider.id}
+                      key={provider.id || `core-${index}`}
                       style={[
                         styles.pickerOption,
                         coreConfig.coreApi === provider.id && styles.pickerOptionSelected,
@@ -216,9 +216,9 @@ export default function SettingsScreen() {
               <View style={styles.field}>
                 <Text style={styles.label}>Assist API Provider</Text>
                 <View style={styles.pickerContainer}>
-                  {assistProviders.map(provider => (
+                  {assistProviders.map((provider, index) => (
                     <TouchableOpacity
-                      key={provider.id}
+                      key={provider.id || `assist-${index}`}
                       style={[
                         styles.pickerOption,
                         coreConfig.assistApi === provider.id && styles.pickerOptionSelected,
