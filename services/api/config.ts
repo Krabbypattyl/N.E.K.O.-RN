@@ -94,7 +94,7 @@ const failedRefresh = async () => { throw new Error('No refresh token'); };
  */
 export function createConfigApiClient(apiBase: string) {
   const client = createRequestClient({
-    baseURL: apiBase,
+    baseURL: `${apiBase}/api`,
     storage: noopStorage,
     refreshApi: failedRefresh,
     returnDataOnly: true,
