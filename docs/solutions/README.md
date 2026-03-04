@@ -8,8 +8,7 @@
 
 | 文档 | 描述 |
 |------|------|
-| [p2p-solution.md](./p2p-solution.md) | P2P 连接方案设计 |
-| [frp-reverse-proxy.md](./frp-reverse-proxy.md) | FRP 内网穿透反向代理方案 |
+| [p2p-solution.md](./p2p-solution.md) | P2P 连接方案设计（含同WiFi直连、UPnP打洞、FRP中继） |
 
 ---
 
