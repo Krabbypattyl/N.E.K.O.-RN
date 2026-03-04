@@ -265,7 +265,7 @@ export const styles = StyleSheet.create({
   },
 
   sendButton: {
-    width: 80,
+    flex: 1,
     backgroundColor: '#44b7fe',
     paddingVertical: 12,
     borderRadius: 6,
@@ -346,7 +346,7 @@ export const styles = StyleSheet.create({
 
   // ===== 图片按钮（合并相册+拍照）=====
   imageButton: {
-    width: 80,
+    flex: 1,
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderWidth: 1,
     borderColor: '#44b7fe',

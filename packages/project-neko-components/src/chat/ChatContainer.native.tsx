@@ -541,7 +541,7 @@ export default function ChatContainer({
                           disabled && styles.imageButtonTextDisabled,
                         ]}
                       >
-                        {tOrDefault(t, 'chat.image.button', '📎')}
+                        {tOrDefault(t, 'chat.image.button', '图片')}
                       </Text>
                     </TouchableOpacity>
                   )}
