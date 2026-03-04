@@ -243,12 +243,28 @@ export default function ServerConfigScreen() {
               <Text style={styles.sectionTitle}>当前配置</Text>
             </View>
             <View style={styles.card}>
-              <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>WebSocket URL</Text>
-              </View>
-              <Text style={styles.wsUrl}>
-                ws://{config.host}:{config.port}/ws/{config.characterName}
-              </Text>
+              {config.p2p ? (
+                <>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>P2P 连接模式</Text>
+                  </View>
+                  <Text style={styles.wsUrl}>
+                    {config.host}:{config.port}
+                  </Text>
+                  <Text style={[styles.hint, { marginTop: 8 }]}>
+                    Token: {config.p2p.token.slice(0, 8)}...{config.p2p.token.slice(-8)}
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>WebSocket URL</Text>
+                  </View>
+                  <Text style={styles.wsUrl}>
+                    ws://{config.host}:{config.port}/ws/{config.characterName}
+                  </Text>
+                </>
+              )}
             </View>
           </View>
 

@@ -16,6 +16,17 @@ function sanitizePartial(input: any): Partial<DevConnectionConfig> {
   if (isNonEmptyString(input?.host)) out.host = input.host.trim();
   if (isValidPort(input?.port)) out.port = input.port;
   if (isNonEmptyString(input?.characterName)) out.characterName = input.characterName.trim();
+
+  // 支持 P2P 配置 (v2: 只需要 token)
+  if (input?.p2p && typeof input.p2p === 'object') {
+    const p2p = input.p2p;
+    if (isNonEmptyString(p2p.token)) {
+      out.p2p = {
+        token: p2p.token,
+      };
+    }
+  }
+
   return out;
 }
 

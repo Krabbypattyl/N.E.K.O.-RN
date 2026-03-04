@@ -1,10 +1,15 @@
 import { AudioService, AudioStats } from '@/services/AudioService';
 import { useEffect, useRef, useState } from 'react';
+import type { DevConnectionConfig } from '@/utils/devConnectionConfig';
 
 interface UseAudioConfig {
   host: string;
   port: number;
   characterName: string;
+  // P2P 配置（可选）
+  p2p?: DevConnectionConfig['p2p'];
+  // 配置是否已加载完成，为 false 时不初始化连接
+  enabled?: boolean;
   onMessage?: (event: MessageEvent) => void;
   onConnectionChange?: (isConnected: boolean) => void;
   // 🔥 新增：角色切换标志 ref，用于在切换期间忽略错误
@@ -79,12 +84,22 @@ export const useAudio = (config: UseAudioConfig): UseAudioReturn => {
     audioServiceRef.current?.sendMessage(message);
   };
 
+  // 稳定化 P2P token，避免对象引用变化导致不必要的重连
+  const p2pToken = config.p2p?.token;
+
   // 组件初始化
   useEffect(() => {
+    // 配置未加载完成时不初始化连接，避免用 DEFAULT config 发起无效连接
+    if (config.enabled === false) {
+      console.log('🎧 useAudio 跳过初始化（配置未就绪）');
+      return;
+    }
+
     console.log('🎧 useAudio 初始化中...', {
       host: config.host,
       port: config.port,
       characterName: config.characterName,
+      p2pToken: p2pToken ? '***' : undefined,
     });
 
     // 创建 AudioService
@@ -92,6 +107,7 @@ export const useAudio = (config: UseAudioConfig): UseAudioReturn => {
       host: config.host,
       port: config.port,
       characterName: config.characterName,
+      p2p: config.p2p,
       onConnectionChange: (connected) => {
         setIsConnected(connected);
         setConnectionStatus(connected ? '已连接' : '未连接');
@@ -145,7 +161,7 @@ export const useAudio = (config: UseAudioConfig): UseAudioReturn => {
       // 🔥 修复：清理时重置 isReadyRef，避免 waitForConnection 误判
       isReadyRef.current = false;
     };
-  }, [config.host, config.port, config.characterName]);
+  }, [config.host, config.port, config.characterName, p2pToken, config.enabled]);
 
   return {
     // 状态

@@ -5,6 +5,7 @@ import type { AudioService as CrossPlatformAudioService } from '@project_neko/au
 import type { RealtimeClientLike } from '@project_neko/audio-service';
 import { WSService } from './wsService';
 import { requestMicrophonePermission } from '@/utils/permissions';
+import type { DevConnectionConfig } from '@/utils/devConnectionConfig';
 
 /**
  * AudioService 配置接口
@@ -13,6 +14,8 @@ export interface AudioServiceConfig {
   host: string;
   port: number;
   characterName: string;
+  // P2P 配置（可选）
+  p2p?: DevConnectionConfig['p2p'];
   onConnectionChange?: (isConnected: boolean) => void;
   onMessage?: (event: MessageEvent) => void;
   onError?: (error: any) => void;
@@ -113,6 +116,7 @@ export class AudioService {
           host: this.config.host,
           port: this.config.port,
           characterName: this.config.characterName,
+          p2p: this.config.p2p,
           onOpen: () => {
             console.log('✅ WebSocket 已连接');
             this.connectionStatus = ConnectionStatus.CONNECTED;
@@ -122,11 +126,21 @@ export class AudioService {
           onMessage: (event) => {
             this.config.onMessage?.(event);
           },
-          onError: (error) => {
-            console.error('❌ WebSocket 错误:', error);
+          onError: (error: any) => {
+            // 1006 异常关闭通常由网络波动引起，重连机制会自动处理
+            const isAbnormalClose = error?.code === 1006 ||
+              (error?.reason && typeof error.reason === 'string' && error.reason.includes('failed to connect'));
+            if (isAbnormalClose) {
+              console.log('🔌 WebSocket 中断(1006)，等待重连...');
+            } else {
+              console.error('❌ WebSocket 错误:', error);
+            }
             this.connectionStatus = ConnectionStatus.ERROR;
             this.config.onError?.(error);
-            reject(error);
+            // 仅在非 1006 错误时拒绝 Promise，避免初始化被意外中断
+            if (!isAbnormalClose) {
+              reject(error);
+            }
           },
           onClose: () => {
             console.log('🔌 WebSocket 已断开');

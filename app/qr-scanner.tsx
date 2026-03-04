@@ -63,6 +63,26 @@ export default function QrScannerScreen() {
           return;
         }
 
+        // P2P 连接成功提示 (v2 架构)
+        if (applied.isP2p) {
+          Alert.alert(
+            'P2P 连接配置成功',
+            `局域网 IP: ${applied.config.host}\n端口: ${applied.config.port}\n角色: ${applied.config.characterName}\n\n请确保手机和电脑在同一 WiFi 下。`,
+            [
+              {
+                text: '确定',
+                onPress: () => {
+                  router.replace({
+                    pathname: target,
+                    params: { qr: encodeURIComponent(raw), p2p: 'true' },
+                  });
+                },
+              },
+            ]
+          );
+          return;
+        }
+
         router.replace({
           pathname: target,
           // 兼容旧逻辑：仍传 qr 参数；但主逻辑已写入全局配置

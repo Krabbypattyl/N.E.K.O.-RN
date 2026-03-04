@@ -78,13 +78,21 @@ const failedRefresh = async () => { throw new Error('No refresh token'); };
 /**
  * Create characters API client
  */
-export function createCharactersApiClient(apiBase: string) {
+export function createCharactersApiClient(apiBase: string, p2pToken?: string) {
   const client = createRequestClient({
     baseURL: `${apiBase}/api`,
     storage: noopStorage,
     refreshApi: failedRefresh,
     returnDataOnly: true,
   });
+
+  // P2P 模式：所有请求自动带 token query 参数
+  if (p2pToken) {
+    client.interceptors.request.use((config) => {
+      config.params = { ...config.params, token: p2pToken };
+      return config;
+    });
+  }
 
   return {
     /**
