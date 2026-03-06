@@ -473,8 +473,27 @@ function useAudioServiceReady() {
 2. ✅ 确保 AudioService 完全初始化后才发送消息
 3. ✅ 使用 ref 避免闭包引用问题
 
-## 参考资料
+## 2026-03-06 更新：isSwitchingCharacterRef 提前置位
 
-- [React Hooks 闭包陷阱](https://react.dev/learn/referencing-values-with-refs)
-- [ useRef vs useState](https://react.dev/learn/referencing-values-with-refs#differences-between-refs-and-state)
-- [Stale Closures in React](https://dmitripavlutin.com/react-hooks-stale-closures/)
+### 问题
+
+`handleSwitchCharacter` 中，切换标志 `isSwitchingCharacterRef.current` 是在收到服务端广播 `catgirl_switched` 后才置 `true`（由 `onMessage` 处理）。这意味着：从 API 请求成功 → 收到广播之间的时间窗口内，断线错误仍然不会被屏蔽，用户会短暂看到误报的"连接错误"。
+
+### 修复
+
+API 成功后立即置位，不等服务端广播：
+
+```typescript
+if (res.success) {
+  setCharacterModalVisible(false);
+  isSwitchingCharacterRef.current = true;  // 立即置位，屏蔽后续断线错误
+  // ...设置超时保护 timer
+}
+```
+
+超时保护 timer（15 秒）负责在未收到切换完成事件时自动重置标志，保证不会永久屏蔽。
+
+### 参考
+
+完整修复记录见：[code-review-2026-03-06.md](./code-review-2026-03-06.md)
+
