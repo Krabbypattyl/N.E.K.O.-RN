@@ -41,7 +41,8 @@ export class WSService {
     console.log('[WSService] init() called, isP2P:', this.isP2P, 'p2p config:', this.config.p2p);
     if (this.isP2P && this.config.p2p) {
       // v2 P2P 模式：通过代理连接，token 放在 URL query 中
-      wsUrl = `ws://${this.config.host}:${this.config.port}`
+      // 使用 config.protocol 保持与标准模式一致（支持 wss://）
+      wsUrl = `${this.config.protocol}://${this.config.host}:${this.config.port}`
             + `/ws/${this.config.characterName}`
             + `?token=${this.config.p2p.token}`;
 

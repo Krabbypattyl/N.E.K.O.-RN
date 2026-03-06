@@ -217,7 +217,7 @@ export default function CharacterManagerScreen() {
               const result = await client.deleteCatgirl(character.id);
 
               if (result.success) {
-                setCatgirls(catgirls.filter(c => c.id !== character.id));
+                setCatgirls(prev => prev.filter(c => c.id !== character.id));
                 Alert.alert('Success', 'Character deleted!');
               } else {
                 setError(result.error || 'Failed to delete');

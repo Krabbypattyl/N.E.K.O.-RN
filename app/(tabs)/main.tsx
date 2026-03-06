@@ -75,6 +75,8 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
   const isInBackgroundRef = useRef(false);
   // 🔥 新增：记录是否是从后台恢复，用于显示"已恢复连接"提示
   const wasInBackgroundRef = useRef(false);
+  // AppState 后台延迟重置 timer ref（确保组件卸载时清理）
+  const appStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // StatusToast ref，用于显示连接状态提示
   const statusToastRef = useRef<StatusToastHandle>(null);
   // 合并为单一对象，确保 modelName 和 modelUrl 同步更新，避免两次 setState 触发两次 useLive2D effect
@@ -103,13 +105,16 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         console.log('📱 应用进入后台，标记后台状态');
+        if (appStateTimerRef.current) clearTimeout(appStateTimerRef.current);
         isInBackgroundRef.current = true;
       } else if (nextAppState === 'active') {
         console.log('📱 应用回到前台，延迟重置后台状态');
         // 标记是从后台恢复，用于显示"已恢复连接"提示
         wasInBackgroundRef.current = true;
         // 延迟重置，给 WebSocket 重连时间，避免显示错误
-        setTimeout(() => {
+        if (appStateTimerRef.current) clearTimeout(appStateTimerRef.current);
+        appStateTimerRef.current = setTimeout(() => {
+          appStateTimerRef.current = null;
           isInBackgroundRef.current = false;
           wasInBackgroundRef.current = false;
           console.log('📱 后台状态标志已重置');
@@ -119,6 +124,10 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
 
     return () => {
       subscription.remove();
+      if (appStateTimerRef.current) {
+        clearTimeout(appStateTimerRef.current);
+        appStateTimerRef.current = null;
+      }
     };
   }, []);
 
@@ -172,10 +181,10 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
       const apiBase = buildHttpBaseURL(config);
       const client = createCharactersApiClient(apiBase, config.p2p?.token);
       const modelRes = await client.getCurrentLive2dModel(catgirlName);
-      console.log('🎨 [syncLive2dModel] API 返回:', JSON.stringify(modelRes));
+      if (__DEV__) console.log('🎨 [syncLive2dModel] API 返回:', JSON.stringify(modelRes));
       if (modelRes.success && modelRes.model_info) {
         const modelUrl = appendP2PToken(`${apiBase}${modelRes.model_info.path}`, config.p2p?.token);
-        console.log('🎨 [syncLive2dModel] 设置模型 URL:', modelUrl);
+        if (__DEV__) console.log('🎨 [syncLive2dModel] 设置模型 URL:', modelUrl);
         setLive2dModel({
           name: modelRes.model_info.name,
           url: modelUrl,
@@ -190,7 +199,7 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
 
   // 启动时从服务端获取当前角色，以服务端为准
   useEffect(() => {
-    console.log('🔍 [syncCurrentCatgirl] isConfigLoaded =', isConfigLoaded, 'config =', JSON.stringify({ host: config.host, port: config.port, char: config.characterName, hasP2P: !!config.p2p }));
+    if (__DEV__) console.log('🔍 [syncCurrentCatgirl] isConfigLoaded =', isConfigLoaded, 'config =', JSON.stringify({ host: config.host, port: config.port, char: config.characterName, hasP2P: !!config.p2p }));
     // 等待配置加载完成
     if (!isConfigLoaded) return;
     console.log('✅ [syncCurrentCatgirl] 配置已加载，开始同步角色');
@@ -198,10 +207,10 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
     const syncCurrentCatgirl = async () => {
       try {
         const apiBase = buildHttpBaseURL(config);
-        console.log('🌐 [syncCurrentCatgirl] apiBase =', apiBase);
+        if (__DEV__) console.log('🌐 [syncCurrentCatgirl] apiBase =', apiBase);
         const client = createCharactersApiClient(apiBase, config.p2p?.token);
         const res = await client.getCurrentCatgirl();
-        console.log('📦 [syncCurrentCatgirl] getCurrentCatgirl 返回:', JSON.stringify(res));
+        if (__DEV__) console.log('📦 [syncCurrentCatgirl] getCurrentCatgirl 返回:', JSON.stringify(res));
         if (res.current_catgirl) {
           setCurrentCatgirl(res.current_catgirl);
           if (config.characterName !== res.current_catgirl) {
@@ -212,8 +221,9 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
           console.log('✅ [syncCurrentCatgirl] syncLive2dModel 完成');
 
           // 发送 start_session 以同步角色音色
+          // 使用 audio.isReadyRef（ref，始终最新）避免闭包捕获 isConnected 旧值
           setTimeout(() => {
-            if (audio.isConnected) {
+            if (audio.isReadyRef.current) {
               console.log('📤 发送 start_session 以同步角色音色');
               audio.sendMessage({
                 action: 'start_session',
@@ -328,8 +338,8 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
     }
   }, [camera.photo, camera.clearPhoto]);
 
-  // 稳定 P2P 配置引用，避免不必要的重连
-  const p2pConfig = useMemo(() => config.p2p, [config.p2p?.token]);
+  // 稳定 P2P 配置引用，避免不必要的重连（依赖整个 p2p 对象，而非只追踪 token）
+  const p2pConfig = useMemo(() => config.p2p, [config.p2p]);
 
   const audio = useAudio({
     host: config.host,
@@ -960,6 +970,8 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
 
       if (res.success) {
         setCharacterModalVisible(false);
+        // 立即置为切换中，屏蔽切换期间的 WebSocket 错误（不等服务端广播）
+        isSwitchingCharacterRef.current = true;
         // UI 更新由服务端广播的 catgirl_switched 消息统一驱动
         // 超时保护：15 秒内若未收到 onConnectionChange(true)，自动解除所有切换状态
         if (characterLoadingTimerRef.current) clearTimeout(characterLoadingTimerRef.current);
@@ -1000,6 +1012,11 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
       await audio.toggleRecording();
       // 给服务端一点时间完成 end_session 清理
       await new Promise(r => setTimeout(r, 500));
+      // 500ms 等待后重检：若用户在此期间重新开始录音，则放弃本次文本发送
+      if (audio.isRecording) {
+        console.log('⚠️ 等待期间用户重新开始录音，放弃 text session');
+        return false;
+      }
     }
 
     // 如果已经有一个正在进行的 session 请求，复用该 Promise

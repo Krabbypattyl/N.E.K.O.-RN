@@ -54,8 +54,9 @@ export const useAudio = (config: UseAudioConfig): UseAudioReturn => {
     isSpeechDetected: false,
   });
 
-  // Service 引用
+  // Service 引用（内部使用 ref，外部暴露 state 以避免 stale snapshot）
   const audioServiceRef = useRef<AudioService | null>(null);
+  const [audioService, setAudioService] = useState<AudioService | null>(null);
 
   // 🔥 AudioService 是否完全就绪的 ref（避免闭包引用问题）
   const isReadyRef = useRef<boolean>(false);
@@ -112,7 +113,7 @@ export const useAudio = (config: UseAudioConfig): UseAudioReturn => {
     });
 
     // 创建 AudioService
-    audioServiceRef.current = new AudioService({
+    const service = new AudioService({
       host: config.host,
       port: config.port,
       characterName: config.characterName,
@@ -147,17 +148,22 @@ export const useAudio = (config: UseAudioConfig): UseAudioReturn => {
       },
     });
 
-    // 初始化服务
-    audioServiceRef.current.init().catch(error => {
-      console.error('❌ AudioService 初始化失败:', error);
-      setConnectionStatus('初始化失败');
-      isReadyRef.current = false;
-    }).then(() => {
-      // 🔥 初始化完成后，更新 isReadyRef
-      if (audioServiceRef.current?.isReady()) {
+    audioServiceRef.current = service;
+    setAudioService(service);
+
+    // 初始化服务（先 .then 再 .catch，避免 catch 后 then 仍执行的问题）
+    service.init().then(() => {
+      // 守护：若 cleanup 已执行（旧 service 已换），忽略此回调，避免污染 isReadyRef
+      if (audioServiceRef.current !== service) return;
+      if (service.isReady()) {
         console.log('✅ AudioService 已完全就绪，更新 isReadyRef');
         isReadyRef.current = true;
       }
+    }).catch(error => {
+      if (audioServiceRef.current !== service) return;
+      console.error('❌ AudioService 初始化失败:', error);
+      setConnectionStatus('初始化失败');
+      isReadyRef.current = false;
     });
 
     // 清理函数
@@ -165,6 +171,7 @@ export const useAudio = (config: UseAudioConfig): UseAudioReturn => {
       console.log('🧹 useAudio 清理中...');
       audioServiceRef.current?.destroy();
       audioServiceRef.current = null;
+      setAudioService(null);
       setIsRecording(false);
       setIsConnected(false);
       // 🔥 修复：清理时重置 isReadyRef，避免 waitForConnection 误判
@@ -187,7 +194,7 @@ export const useAudio = (config: UseAudioConfig): UseAudioReturn => {
     reconnect,
 
     // 原始 Service 引用（供高级用户使用）
-    audioService: audioServiceRef.current,
+    audioService,
 
     // AudioService 是否完全就绪的 ref（避免闭包引用问题）
     isReadyRef,

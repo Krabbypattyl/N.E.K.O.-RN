@@ -139,11 +139,16 @@ export default function ChatContainer({
 
   // ScrollView ref 用于自动滚动
   const scrollViewRef = useRef<ScrollViewType>(null);
+  // 滚动延迟 timer refs（确保组件卸载时清理）
+  const scrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const expandTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 滚动到底部
   const scrollToBottom = React.useCallback((animated = true) => {
     // 延迟执行确保布局完成
-    setTimeout(() => {
+    if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+    scrollTimerRef.current = setTimeout(() => {
+      scrollTimerRef.current = null;
       scrollViewRef.current?.scrollToEnd({ animated });
     }, 100);
   }, []);
@@ -156,6 +161,14 @@ export default function ChatContainer({
     return internalMessages;
   }, [isControlled, externalMessages, internalMessages]);
 
+  // 卸载时清理所有滚动 timer
+  useEffect(() => {
+    return () => {
+      if (scrollTimerRef.current !== null) clearTimeout(scrollTimerRef.current);
+      if (expandTimerRef.current !== null) clearTimeout(expandTimerRef.current);
+    };
+  }, []);
+
   // 消息列表变化时自动滚动到底部
   useEffect(() => {
     if (displayMessages.length > 0 && !collapsed) {
@@ -167,10 +180,18 @@ export default function ChatContainer({
   useEffect(() => {
     if (!collapsed) {
       // 延迟稍长一点，确保 Modal 动画完成后再滚动
-      setTimeout(() => {
+      if (expandTimerRef.current !== null) clearTimeout(expandTimerRef.current);
+      expandTimerRef.current = setTimeout(() => {
+        expandTimerRef.current = null;
         scrollToBottom(false);
       }, 300);
     }
+    return () => {
+      if (expandTimerRef.current !== null) {
+        clearTimeout(expandTimerRef.current);
+        expandTimerRef.current = null;
+      }
+    };
   }, [collapsed, scrollToBottom]);
 
   // 键盘弹起时滚动到底部

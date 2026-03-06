@@ -132,13 +132,13 @@ export class AudioService {
               (error?.reason && typeof error.reason === 'string' && error.reason.includes('failed to connect'));
             if (isAbnormalClose) {
               console.log('🔌 WebSocket 中断(1006)，等待重连...');
+              // 1006 时 resolve 而非挂起：client 对象已创建，initAudioService 可继续
+              // 后续重连成功时 onOpen → onConnectionChange(true) 会更新连接状态
+              resolve();
             } else {
               console.warn('⚠️ WebSocket 错误:', error);
-            }
-            this.connectionStatus = ConnectionStatus.ERROR;
-            this.config.onError?.(error);
-            // 仅在非 1006 错误时拒绝 Promise，避免初始化被意外中断
-            if (!isAbnormalClose) {
+              this.connectionStatus = ConnectionStatus.ERROR;
+              this.config.onError?.(error);
               reject(error);
             }
           },
@@ -568,31 +568,36 @@ export class AudioService {
     // 停止统计更新
     this.stopStatsUpdate();
 
-    // 停止录音/播放并解绑监听
-    if (this.isRecording) {
-      this.audioService?.stopVoiceSession().catch((err: any) => {
-        console.error('停止录音失败:', err);
-      });
-    }
-    try {
-      this.audioService?.stopPlayback();
-    } catch (_e) {}
-    try {
-      this.audioService?.detach?.();
-    } catch (_e) {}
+    // 先保存局部引用，立即清空成员（避免异步操作完成前访问已销毁的实例）
+    const audioSvc = this.audioService;
+    const wsSvc = this.wsService;
+    const wasRecording = this.isRecording;
 
-    // 关闭 WebSocket
-    if (this.wsService) {
-      this.wsService.close();
-    }
-
-    // 重置状态
+    // 重置状态（先置空，再做异步清理）
     this.wsService = null;
     this.audioService = null;
     this.isInitialized = false;
     this.connectionStatus = ConnectionStatus.DISCONNECTED;
     this.isSessionActive = false;
     this.isRecording = false;
+
+    // 停止录音/播放并解绑监听（在局部引用上操作，避免 use-after-free）
+    if (wasRecording && audioSvc) {
+      audioSvc.stopVoiceSession().catch((err: any) => {
+        console.error('停止录音失败:', err);
+      });
+    }
+    try {
+      audioSvc?.stopPlayback();
+    } catch (_e) {}
+    try {
+      audioSvc?.detach?.();
+    } catch (_e) {}
+
+    // 关闭 WebSocket
+    if (wsSvc) {
+      wsSvc.close();
+    }
 
     console.log('✅ AudioService 已销毁');
   }
