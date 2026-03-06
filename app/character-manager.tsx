@@ -112,7 +112,8 @@ export default function CharacterManagerScreen() {
 
   // Save master profile
   const handleSaveMaster = useCallback(async () => {
-    if (!masterProfile.name.trim()) {
+    const trimmedName = masterProfile.name.trim();
+    if (!trimmedName) {
       setError('Name is required');
       return;
     }
@@ -122,9 +123,11 @@ export default function CharacterManagerScreen() {
       setError(null);
 
       const client = createCharactersApiClient(apiBase, p2pToken);
-      const profile: MasterProfile = { 档案名: masterProfile.name };
-      if (masterProfile.nickname) profile.昵称 = masterProfile.nickname;
-      if (masterProfile.gender) profile.性别 = masterProfile.gender;
+      const profile: MasterProfile = { 档案名: trimmedName };
+      const trimmedNickname = masterProfile.nickname?.trim();
+      if (trimmedNickname) profile.昵称 = trimmedNickname;
+      const trimmedGender = masterProfile.gender?.trim();
+      if (trimmedGender) profile.性别 = trimmedGender;
   
       const result = await client.updateMaster(profile);
 
@@ -155,7 +158,8 @@ export default function CharacterManagerScreen() {
 
   // Save catgirl
   const handleSaveCharacter = useCallback(async (character: Character) => {
-    if (!character.name.trim()) {
+    const trimmedName = character.name.trim();
+    if (!trimmedName) {
       Alert.alert('Error', 'Name is required');
       return;
     }
@@ -165,7 +169,14 @@ export default function CharacterManagerScreen() {
       setError(null);
 
       const client = createCharactersApiClient(apiBase, p2pToken);
-      const profile = characterToCatgirl(character);
+      const trimmedCharacter: Character = {
+        ...character,
+        name: trimmedName,
+        nickname: character.nickname?.trim(),
+        personality: character.personality?.trim(),
+        backstory: character.backstory?.trim(),
+      };
+      const profile = characterToCatgirl(trimmedCharacter);
 
       let result;
       if (isNewCharacter) {
