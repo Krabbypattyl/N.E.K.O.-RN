@@ -2,6 +2,7 @@ import { StyleSheet, View, TouchableOpacity, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import { useDevConnectionConfig } from '@/hooks/useDevConnectionConfig';
 import { hasUserStoredConfig } from '@/services/DevConnectionStorage';
 import { sessionStore } from '@/utils/sessionStore';
@@ -17,18 +18,19 @@ export default function HomeScreen() {
   const router = useRouter();
   const { config, isLoaded, reload } = useDevConnectionConfig();
 
+  const isFocused = useIsFocused();
   const [isConnected, setIsConnected] = useState(sessionStore.isConnected);
   const [isUserConfigured, setIsUserConfigured] = useState(false);
 
   // 订阅 WebSocket 连接状态变化
   useEffect(() => sessionStore.subscribe(setIsConnected), []);
 
-  // 首次加载：同步配置状态
+  // 每次页面获得焦点时同步配置状态（扫码/手动配置后返回首页可立即更新）
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !isFocused) return;
     hasUserStoredConfig().then(setIsUserConfigured);
     reload();
-  }, [isLoaded, reload]);
+  }, [isLoaded, isFocused, reload]);
 
   const status: ConnectionStatus = isConnected ? 'online' : 'offline';
   const { color: statusColor, text: statusText } = STATUS_MAP[status];
@@ -82,6 +84,8 @@ export default function HomeScreen() {
               <Text style={styles.configValue}>
                 {config.host}:{config.port}
               </Text>
+            ) : isUserConfigured ? (
+              <Text style={styles.configValueOffline}>已配置，等待连接…</Text>
             ) : (
               <Text style={styles.configValueOffline}>扫码或手动配置以连接</Text>
             )}

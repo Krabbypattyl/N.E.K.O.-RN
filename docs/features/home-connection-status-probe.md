@@ -13,7 +13,7 @@
 
 基于 WebSocket 实际连接状态（被动订阅）而非 HTTP 主动探测。`main.tsx` 的 WebSocket 建立/断开时调用 `sessionStore.set(connected)`，`index.tsx` 订阅该 store 并实时更新 UI。
 
-```
+```text
 main.tsx（onConnectionChange 回调）
   └─ sessionStore.set(connected)
        └─ 通知所有订阅者
@@ -35,11 +35,13 @@ main.tsx（onConnectionChange 回调）
 | 状态 | 圆点颜色 | 文字 | IP 显示 |
 |------|---------|------|---------|
 | `true`（已连接） | `#40c5f1`（蓝色） | 就绪 | `isUserConfigured = true` 时显示 |
-| `false`（未连接） | `#ff4d4d`（红色） | 未连接 | **不显示**，替换为占位提示 |
+| `false` + 已配置 | `#ff4d4d`（红色） | 未连接 | **不显示**，显示"已配置，等待连接…" |
+| `false` + 未配置 | `#ff4d4d`（红色） | 未连接 | **不显示**，显示引导文字 |
 
-IP 的显示条件为 `isUserConfigured && isConnected`：
-- 用户从未扫码/手动配置时，不显示 IP
-- 断开时隐藏 IP，避免用户误认为连接仍然有效
+IP 的显示条件为 `isUserConfigured && isConnected`（三态）：
+- `!isUserConfigured`：显示引导文字"扫码或手动配置以连接"
+- `isUserConfigured && !isConnected`：显示"已配置，等待连接…"（已保存配置，但 WebSocket 尚未建立）
+- `isUserConfigured && isConnected`：显示实际 `host:port`
 
 ## 核心代码位置
 
@@ -99,6 +101,7 @@ onConnectionChange: (connected) => {
 
 ```typescript
 import { useEffect, useState } from 'react';
+import { useIsFocused } from '@react-navigation/native';
 import { sessionStore } from '@/utils/sessionStore';
 import { hasUserStoredConfig } from '@/services/DevConnectionStorage';
 
@@ -111,6 +114,7 @@ const STATUS_MAP: Record<ConnectionStatus, { color: string; text: string }> = {
 
 export default function HomeScreen() {
   const { config, isLoaded, reload } = useDevConnectionConfig();
+  const isFocused = useIsFocused();
 
   const [isConnected, setIsConnected] = useState(sessionStore.isConnected);
   const [isUserConfigured, setIsUserConfigured] = useState(false);
@@ -118,12 +122,12 @@ export default function HomeScreen() {
   // 订阅 WebSocket 连接状态变化（返回值即 unsubscribe，作为 cleanup）
   useEffect(() => sessionStore.subscribe(setIsConnected), []);
 
-  // 首次加载：同步配置显示状态
+  // 每次页面获得焦点时同步配置状态（扫码/手动配置后返回首页可立即更新）
   useEffect(() => {
-    if (!isLoaded) return;
+    if (!isLoaded || !isFocused) return;
     hasUserStoredConfig().then(setIsUserConfigured);
     reload();
-  }, [isLoaded, reload]);
+  }, [isLoaded, isFocused, reload]);
 
   const status: ConnectionStatus = isConnected ? 'online' : 'offline';
   const { color: statusColor, text: statusText } = STATUS_MAP[status];
@@ -142,6 +146,8 @@ export default function HomeScreen() {
 
 {showIp ? (
   <Text style={styles.configValue}>{config.host}:{config.port}</Text>
+) : isUserConfigured ? (
+  <Text style={styles.configValueOffline}>已配置，等待连接…</Text>
 ) : (
   <Text style={styles.configValueOffline}>扫码或手动配置以连接</Text>
 )}
@@ -152,7 +158,7 @@ export default function HomeScreen() {
 - **首次打开（从未扫码/配置）**：`isUserConfigured = false`，IP 位置始终显示引导文字；`sessionStore.isConnected = false` → 显示"未连接"
 - **WebSocket 建立连接**：`onConnectionChange(true)` → `sessionStore.set(true)` → 首页立即更新为"就绪"，若已配置则显示 IP
 - **WebSocket 断开**：`onConnectionChange(false)` → `sessionStore.set(false)` → 首页立即切换为"未连接"，IP 隐藏
-- **扫码后进入主页面，再切换回首页**：store 中保留最新的连接状态，首页直接读取 `sessionStore.isConnected` 初始值，无需重新探测
+- **扫码后进入主页面，再切换回首页**：`useIsFocused` 触发 `hasUserStoredConfig` 重新读取，`isUserConfigured` 正确更新；store 中保留最新的连接状态，首页直接读取 `sessionStore.isConnected` 初始值，无需重新探测
 
 ---
 
@@ -217,4 +223,4 @@ const checkConnection = useCallback(async () => {
 | 2026-03-06 | 修复：探测条件改为 `res.ok`，修复超时 bug（timedOut 标志），改用 `useIsFocused` + `useEffect` | Claude |
 | 2026-03-06 | 修复：探测端点从 `/api/config/preferences` 改为 `/health`（前者仅在 monitor.py 端口 48913 存在，代理转发后得 404） | Claude |
 | 2026-03-06 | 重构（当前方案）：放弃 HTTP 探测，改为 WebSocket 被动订阅。新增 `utils/sessionStore.ts`，`main.tsx` 写入，`index.tsx` 订阅，实现零延迟、零额外请求的状态同步 | Claude |
-| 2026-03-06 | 文档：复查废弃方案可行性，确认端点问题已解决但架构缺陷仍在，维持废弃决定 | Claude |
+| 2026-03-07 | 修复：useEffect 加入 `isFocused` 依赖，扫码/配置后返回首页立即更新；IP 显示改为三态（已连接/已配置未连接/未配置）；sessionStore forEach Biome lint | Claude |
