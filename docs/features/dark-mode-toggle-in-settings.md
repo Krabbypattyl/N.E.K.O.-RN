@@ -33,7 +33,7 @@
 
 「自主视觉」开关的完整调用链如下，暗色模式开关遵循完全相同的模式：
 
-```
+```text
 types.ts              — 类型定义（Live2DSettingsToggleId + Live2DSettingsState）
     ↓
 hooks.ts              — useSettingsToggleRows() 生成开关行配置
@@ -466,7 +466,7 @@ fetch('/api/config/theme', {
 
 ### 10.4 同步后数据流
 
-```
+```text
 RN 端切换暗色模式
     ↓
 POST /api/config/theme { darkMode: true }
@@ -507,6 +507,7 @@ document.documentElement.setAttribute('data-theme', 'dark')
 
 | 版本 | 日期 | 更新内容 |
 |------|------|----------|
+| v1.3 | 2026-03-09 | 修正：main.tsx 实施状态更新为 ✅；方案对比表列对齐；两处无语言标签的围栏代码块补 text 标签 |
 | v1.2 | 2026-03-08 | 修正第 4 节：补充两方案互斥说明、AsyncStorage 闪烁说明；修正第 10.3 节：补充 Web 端完整 init() 改造方式及 FOUC 处理 |
 | v1.1 | 2026-03-07 | 新增第 10 节：与网页端主题同步方案 |
 | v1.0 | 2026-03-07 | 初始版本 |
