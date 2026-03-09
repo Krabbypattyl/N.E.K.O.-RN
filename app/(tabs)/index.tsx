@@ -6,6 +6,7 @@ import { useIsFocused } from '@react-navigation/native';
 import { useDevConnectionConfig } from '@/hooks/useDevConnectionConfig';
 import { hasUserStoredConfig } from '@/services/DevConnectionStorage';
 import { sessionStore } from '@/utils/sessionStore';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 
 type ConnectionStatus = 'online' | 'offline';
 
@@ -14,9 +15,47 @@ const STATUS_MAP: Record<ConnectionStatus, { color: string; text: string }> = {
   offline: { color: '#ff4d4d', text: '未连接' },
 };
 
+// 亮色/暗色主题色板（参照主项目 theme.css 与 dark-mode.css）
+const LIGHT = {
+  container:       '#e3f4ff',
+  card:            '#f0f8ff',
+  cardBorder:      '#b3e5fc',
+  actionBtn:       '#f0f8ff',
+  actionBorder:    '#b3e5fc',
+  configBtn:       '#f0f8ff',
+  configBtnBorder: '#b3e5fc',
+  textPrimary:     '#1a1a2e',
+  textSub:         '#555',
+  textMuted:       '#888',
+  textOffline:     '#999',
+  titleColor:      '#40c5f1',
+  sectionTitle:    '#40c5f1',
+  configBtnText:   '#40c5f1',
+};
+
+const DARK = {
+  container:       '#000',
+  card:            'rgba(30, 30, 30, 0.6)',
+  cardBorder:      'rgba(255, 255, 255, 0.1)',
+  actionBtn:       'rgba(64, 197, 241, 0.1)',
+  actionBorder:    'rgba(64, 197, 241, 0.3)',
+  configBtn:       'rgba(64, 197, 241, 0.08)',
+  configBtnBorder: 'rgba(64, 197, 241, 0.2)',
+  textPrimary:     '#fff',
+  textSub:         '#888',
+  textMuted:       '#666',
+  textOffline:     '#555',
+  titleColor:      '#40c5f1',
+  sectionTitle:    '#40c5f1',
+  configBtnText:   '#40c5f1',
+};
+
 export default function HomeScreen() {
   const router = useRouter();
   const { config, isLoaded, reload } = useDevConnectionConfig();
+  const colorScheme = useColorScheme();
+  const isDark = colorScheme === 'dark';
+  const t = isDark ? DARK : LIGHT;
 
   const isFocused = useIsFocused();
   const [isConnected, setIsConnected] = useState(sessionStore.isConnected);
@@ -37,78 +76,78 @@ export default function HomeScreen() {
   const showIp = isUserConfigured && isConnected;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: t.container }]}>
       <View style={styles.content}>
         {/* 标题区域 */}
         <View style={styles.header}>
-           <Text style={styles.title}>Project N.E.K.O.</Text>
+           <Text style={[styles.title, { color: t.titleColor }]}>Project N.E.K.O.</Text>
         </View>
 
         {/* 快捷功能 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>快捷功能</Text>
+          <Text style={[styles.sectionTitle, { color: t.sectionTitle }]}>快捷功能</Text>
           <View style={styles.quickActions}>
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { backgroundColor: t.actionBtn, borderColor: t.actionBorder }]}
               onPress={() => router.push('/settings')}
               activeOpacity={0.8}
             >
               <Text style={styles.actionIcon}>🔑</Text>
-              <Text style={styles.actionText}>API 设置</Text>
+              <Text style={[styles.actionText, { color: t.textPrimary }]}>API 设置</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.actionButton}
+              style={[styles.actionButton, { backgroundColor: t.actionBtn, borderColor: t.actionBorder }]}
               onPress={() => router.push('/character-manager')}
               activeOpacity={0.8}
             >
               <Text style={styles.actionIcon}>🐱</Text>
-              <Text style={styles.actionText}>角色管理</Text>
+              <Text style={[styles.actionText, { color: t.textPrimary }]}>角色管理</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* 服务器配置 */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>服务器连接</Text>
+          <Text style={[styles.sectionTitle, { color: t.sectionTitle }]}>服务器连接</Text>
 
-          <View style={styles.configCard}>
+          <View style={[styles.configCard, { backgroundColor: t.card, borderColor: t.cardBorder }]}>
             <View style={styles.configRow}>
-              <Text style={styles.configLabel}>当前连接</Text>
+              <Text style={[styles.configLabel, { color: t.textSub }]}>当前连接</Text>
               <View style={styles.statusIndicator}>
                 <View style={[styles.statusDot, { backgroundColor: statusColor }]} />
                 <Text style={[styles.statusText, { color: statusColor }]}>{statusText}</Text>
               </View>
             </View>
             {showIp ? (
-              <Text style={styles.configValue}>
+              <Text style={[styles.configValue, { color: t.textPrimary }]}>
                 {config.host}:{config.port}
               </Text>
             ) : isUserConfigured ? (
-              <Text style={styles.configValueOffline}>已配置，等待连接…</Text>
+              <Text style={[styles.configValueOffline, { color: t.textOffline }]}>已配置，等待连接…</Text>
             ) : (
-              <Text style={styles.configValueOffline}>扫码或手动配置以连接</Text>
+              <Text style={[styles.configValueOffline, { color: t.textOffline }]}>扫码或手动配置以连接</Text>
             )}
-            <Text style={styles.configSubtext}>角色: {config.characterName}</Text>
+            <Text style={[styles.configSubtext, { color: t.textMuted }]}>角色: {config.characterName}</Text>
           </View>
 
           <View style={styles.configButtons}>
             <TouchableOpacity
-              style={styles.configButton}
+              style={[styles.configButton, { backgroundColor: t.configBtn, borderColor: t.configBtnBorder }]}
               onPress={() => router.push('/server-config')}
               activeOpacity={0.8}
             >
               <Text style={styles.configButtonIcon}>⚙️</Text>
-              <Text style={styles.configButtonText}>手动配置</Text>
+              <Text style={[styles.configButtonText, { color: t.configBtnText }]}>手动配置</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.configButton}
+              style={[styles.configButton, { backgroundColor: t.configBtn, borderColor: t.configBtnBorder }]}
               onPress={() => router.push({ pathname: '/qr-scanner', params: { returnTo: '/main' } })}
               activeOpacity={0.8}
             >
               <Text style={styles.configButtonIcon}>📷</Text>
-              <Text style={styles.configButtonText}>扫码配置</Text>
+              <Text style={[styles.configButtonText, { color: t.configBtnText }]}>扫码配置</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -120,7 +159,7 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#000',
+    // backgroundColor 由 t.container 动态注入
   },
   content: {
     flex: 1,
@@ -134,14 +173,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#40c5f1',
     letterSpacing: 2,
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginTop: 8,
-    letterSpacing: 4,
   },
   section: {
     marginBottom: 28,
@@ -150,7 +182,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#40c5f1',
     marginBottom: 12,
     letterSpacing: 1,
     textTransform: 'uppercase',
@@ -161,7 +192,6 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    backgroundColor: 'rgba(64, 197, 241, 0.1)',
     borderRadius: 16,
     paddingVertical: 24,
     paddingHorizontal: 16,
@@ -169,22 +199,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 10,
     borderWidth: 1,
-    borderColor: 'rgba(64, 197, 241, 0.3)',
   },
   actionIcon: {
     fontSize: 28,
   },
   actionText: {
-    color: '#fff',
     fontSize: 14,
     fontWeight: '600',
   },
   configCard: {
-    backgroundColor: 'rgba(30, 30, 30, 0.6)',
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
   },
   configRow: {
     flexDirection: 'row',
@@ -193,7 +219,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   configLabel: {
-    color: '#888',
     fontSize: 12,
   },
   statusIndicator: {
@@ -205,26 +230,21 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#40c5f1',
   },
   statusText: {
-    color: '#40c5f1',
     fontSize: 12,
     fontWeight: '600',
   },
   configValue: {
-    color: '#fff',
     fontSize: 20,
     fontFamily: 'monospace',
     fontWeight: '600',
   },
   configValueOffline: {
-    color: '#555',
     fontSize: 14,
     fontStyle: 'italic',
   },
   configSubtext: {
-    color: '#666',
     fontSize: 13,
     marginTop: 6,
   },
@@ -235,7 +255,6 @@ const styles = StyleSheet.create({
   },
   configButton: {
     flex: 1,
-    backgroundColor: 'rgba(64, 197, 241, 0.08)',
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 12,
@@ -243,26 +262,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     borderWidth: 1,
-    borderColor: 'rgba(64, 197, 241, 0.2)',
   },
   configButtonIcon: {
     fontSize: 20,
   },
   configButtonText: {
-    color: '#40c5f1',
     fontSize: 13,
     fontWeight: '600',
-  },
-  hintCard: {
-    backgroundColor: 'rgba(30, 30, 30, 0.6)',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-  },
-  hintText: {
-    color: '#888',
-    fontSize: 14,
-    lineHeight: 22,
   },
 });
