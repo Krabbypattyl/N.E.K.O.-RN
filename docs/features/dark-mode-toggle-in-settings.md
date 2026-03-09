@@ -488,7 +488,7 @@ document.documentElement.setAttribute('data-theme', 'dark')
 |------|--------|---------|---------|
 | **纯本地（原方案）** | 最小，3 文件 | ❌ 各自独立 | ✅ |
 | **后端 API 同步（推荐）** | 中，后端 +1 端点，前端各 +5 行 | ✅ RN ↔ Web | ⚠️ 后端不可达时 fallback 系统主题 |
-| 复用现有 `/api/config/core_api` | 无需新端点 | ✅ | ⚠️ | 混入 API 密钥语义不清晰，不推荐 |
+| 复用现有 `/api/config/core_api` | 无需新端点 | ✅ | ⚠️ 混入 API 密钥语义不清晰，不推荐 |
 
 ---
 

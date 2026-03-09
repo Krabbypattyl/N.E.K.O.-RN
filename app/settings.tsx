@@ -298,6 +298,7 @@ export default function SettingsScreen() {
               {[
                 { label: 'Qwen (Alibaba Cloud)', field: 'assistApiKeyQwen' as keyof CoreConfig },
                 { label: 'OpenAI',               field: 'assistApiKeyOpenai' as keyof CoreConfig },
+                { label: 'Gemini (Google)',       field: 'assistApiKeyGemini' as keyof CoreConfig },
                 { label: 'GLM (Zhipu)',           field: 'assistApiKeyGlm' as keyof CoreConfig },
                 { label: 'Step (阶跃星辰)',        field: 'assistApiKeyStep' as keyof CoreConfig },
                 { label: 'Silicon Flow (硅基流动)', field: 'assistApiKeySilicon' as keyof CoreConfig },
