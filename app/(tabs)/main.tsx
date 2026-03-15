@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert, AppState, Appearance, Dimensions, Image, Modal, Platform, ScrollView,
-  StyleSheet, Text, TouchableOpacity, TouchableWithoutFeedback, View,
+  StyleSheet, Text, TextInput, TouchableOpacity, TouchableWithoutFeedback, View,
 } from 'react-native';
 import { ReactNativeLive2dView } from 'react-native-live2d';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -81,6 +81,8 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
   const appStateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // StatusToast ref，用于显示连接状态提示
   const statusToastRef = useRef<StatusToastHandle>(null);
+  // 🔥 新增：调试信息面板
+  const [debugPanelVisible, setDebugPanelVisible] = useState(false);
   // 合并为单一对象，确保 modelName 和 modelUrl 同步更新，避免两次 setState 触发两次 useLive2D effect
   const [live2dModel, setLive2dModel] = useState<{ name: string; url: string | undefined }>({
     name: 'mao_pro',
@@ -1489,6 +1491,93 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
           <Text style={styles.switchingErrorText}>{switchError}</Text>
         </View>
       )}
+
+      {/* 调试按钮 - 右下角浮动 */}
+      <TouchableOpacity
+        style={{
+          position: 'absolute',
+          bottom: 100,
+          right: 20,
+          backgroundColor: 'rgba(64, 197, 241, 0.9)',
+          borderRadius: 25,
+          width: 50,
+          height: 50,
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+          elevation: 10,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.25,
+          shadowRadius: 3.84,
+        }}
+        onPress={() => setDebugPanelVisible(true)}
+      >
+        <Text style={{ color: '#fff', fontSize: 20 }}>🔧</Text>
+      </TouchableOpacity>
+
+      {/* 调试信息面板 */}
+      <Modal
+        visible={debugPanelVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setDebugPanelVisible(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' }}
+          activeOpacity={1}
+          onPress={() => setDebugPanelVisible(false)}
+        >
+          <View
+            style={{
+              position: 'absolute',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              backgroundColor: '#1a1a1a',
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              maxHeight: '70%',
+              padding: 20,
+            }}
+            onStartShouldSetResponder={() => true}
+          >
+            <Text style={{ color: '#40c5f1', fontSize: 18, fontWeight: 'bold', marginBottom: 15 }}>
+              🔧 调试信息
+            </Text>
+            <ScrollView>
+              <Text style={{ color: '#fff', fontSize: 12, fontFamily: 'monospace', marginBottom: 10 }}>
+                {`连接状态: ${udpConnection.status}
+层级: ${udpConnection.layer || '未连接'}
+端点: ${udpConnection.endpoint ? `${udpConnection.endpoint.ip}:${udpConnection.endpoint.port}` : '无'}
+
+当前配置:
+Host: ${config.host}:${config.port}
+Character: ${config.characterName || '未设置'}
+`}
+              </Text>
+              <Text style={{ color: '#40c5f1', fontSize: 12, fontWeight: 'bold', marginBottom: 4 }}>
+                连接日志：
+              </Text>
+              <Text style={{ color: '#ccc', fontSize: 11, fontFamily: 'monospace' }}>
+                {udpConnection.logs.length > 0 ? udpConnection.logs.join('\n') : '（暂无日志）'}
+              </Text>
+            </ScrollView>
+            <TouchableOpacity
+              style={{
+                backgroundColor: '#40c5f1',
+                borderRadius: 8,
+                paddingVertical: 12,
+                alignItems: 'center',
+                marginTop: 15,
+              }}
+              onPress={() => setDebugPanelVisible(false)}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>关闭</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 }
