@@ -46,36 +46,13 @@ export class UdpP2PClient extends EventEmitter {
    * @returns TCP endpoint（用于后续 HTTP 连接）或 null
    */
   async connect(): Promise<TcpEndpoint | null> {
-    console.log('[UDP P2P] 开始三层连接尝试...');
+    this.emit('log', '开始三层连接尝试');
 
-    // 第1层：LAN 直连
-    if (this.config.lanIp && this.config.lanPort) {
-      console.log(`[UDP P2P] 第1层：尝试 LAN 直连 ${this.config.lanIp}:${this.config.lanPort}`);
-      Alert.alert('第1层：LAN 直连', `${this.config.lanIp}:${this.config.lanPort}`);
-
-      const endpoint = await this._tryConnect(
-        this.config.lanIp,
-        this.config.lanPort,
-        5000,  // 5秒超时
-        1,
-        'LAN'
-      );
-      if (endpoint) {
-        console.log('✅ [UDP P2P] 第1层成功：LAN 直连');
-        Alert.alert('✅ 第1层成功', 'LAN 直连已建立');
-        this.tcpEndpoint = endpoint;
-        this.connected = true;
-        return endpoint;
-      }
-      console.log('⏱️  [UDP P2P] 第1层超时，尝试下一层...');
-      Alert.alert('⏱️ 第1层超时', '5秒后尝试 STUN 打洞...');
-    }
+    // 第1层：LAN 直连（由 hook 层处理，这里跳过）
 
     // 第2层：STUN 双向打洞
     if (this.config.stunIp && this.config.stunPort) {
-      console.log(`[UDP P2P] 第2层：尝试 STUN 双向打洞 ${this.config.stunIp}:${this.config.stunPort}`);
-      Alert.alert('第2层：STUN 打洞', `${this.config.stunIp}:${this.config.stunPort}`);
-
+      this.emit('log', `第2层：STUN 打洞 ${this.config.stunIp}:${this.config.stunPort}`);
       const endpoint = await this._tryConnectWithPunch(
         this.config.stunIp,
         this.config.stunPort,
@@ -84,41 +61,32 @@ export class UdpP2PClient extends EventEmitter {
         'STUN'
       );
       if (endpoint) {
-        console.log('✅ [UDP P2P] 第2层成功：STUN 打洞');
-        Alert.alert('✅ 第2层成功', 'STUN 打洞已建立');
         this.tcpEndpoint = endpoint;
         this.connected = true;
         return endpoint;
       }
-      console.log('⏱️  [UDP P2P] 第2层超时，尝试下一层...');
-      Alert.alert('⏱️ 第2层超时', '尝试 FRP 中转...');
+      this.emit('log', '⏱️ 第2层超时，尝试 FRP...');
     }
 
     // 第3层：FRP 中转
     if (this.config.frpIp && this.config.frpPort) {
-      console.log(`[UDP P2P] 第3层：尝试 FRP 中转 ${this.config.frpIp}:${this.config.frpPort}`);
-      Alert.alert('第3层：FRP 中转', `${this.config.frpIp}:${this.config.frpPort}`);
-
+      this.emit('log', `第3层：FRP 中转 ${this.config.frpIp}:${this.config.frpPort}`);
       const endpoint = await this._tryConnect(
         this.config.frpIp,
         this.config.frpPort,
-        10000,  // 10秒超时
+        10000,
         3,
         'FRP'
       );
       if (endpoint) {
-        console.log('✅ [UDP P2P] 第3层成功：FRP 中转');
-        Alert.alert('✅ 第3层成功', 'FRP 中转已建立');
         this.tcpEndpoint = endpoint;
         this.connected = true;
         return endpoint;
       }
-      console.log('⏱️  [UDP P2P] 第3层超时');
-      Alert.alert('⏱️ 第3层超时', '所有连接方式失败');
+      this.emit('log', '⏱️ 第3层超时');
     }
 
-    console.log('❌ [UDP P2P] 所有连接方式失败');
-    Alert.alert('❌ 连接失败', '所有三层连接方式都失败了');
+    this.emit('log', '❌ 所有连接方式失败');
     this.emit('failed');
     return null;
   }
@@ -242,7 +210,7 @@ export class UdpP2PClient extends EventEmitter {
         this.socket = dgram.createSocket('udp4');
 
         const timer = setTimeout(() => {
-          console.log(`[UDP P2P] 第${layer}层超时 (${timeout}ms)`);
+          this.emit('log', `第${layer}层超时 (${timeout}ms)`);
           this._closeSocket();
           resolve(null);
         }, timeout);
@@ -254,16 +222,11 @@ export class UdpP2PClient extends EventEmitter {
             const msgText = data.toString();
             const msg = JSON.parse(msgText);
 
-            // 忽略 PUNCH 包，只是打洞用的，不需要处理
             if (msg.type === 'PUNCH') {
-              console.log('[UDP P2P] 收到后端 PUNCH 包，洞已打通');
+              this.emit('log', '收到后端 PUNCH 包，洞已打通');
               return;
             }
 
-            // 处理 STUN 响应（原始二进制，不是 JSON）
-            // STUN 响应在 _parseStunResponse 里单独处理，这里只处理 JSON 消息
-
-            // 处理 ACK
             if (msg.type === 'ACK' && msg.tcp_endpoint) {
               clearTimeout(timer);
               const endpoint: TcpEndpoint = {
@@ -275,27 +238,26 @@ export class UdpP2PClient extends EventEmitter {
               resolve(endpoint);
             }
           } catch {
-            // 非 JSON 包（如 STUN 二进制响应），忽略
+            // 非 JSON 包忽略
           }
         });
 
         this.socket.on('error', (err: Error) => {
-          console.error('[UDP P2P] Socket 错误:', err);
+          this.emit('log', `Socket 错误: ${err.message}`);
           clearTimeout(timer);
           this._closeSocket();
           resolve(null);
         });
 
         this.socket.on('listening', async () => {
-          console.log(`[UDP P2P] Socket 就绪，开始双向打洞流程`);
+          this.emit('log', 'Socket 就绪，查询公网地址...');
 
-          // Step 1: 用同一 socket 查自己的公网地址（发 STUN 到后端的 STUN 服务器）
-          const stunServer = ip; // 后端公网 IP 同时也是 STUN 服务器
+          // STUN 服务器与 FRP 服务器在同一台机器（47.117.174.64:3478）
+          const stunServer = this.config.frpIp || ip;
           const myPublicAddr = await this._queryStunAddress(stunServer, 3478);
 
           if (myPublicAddr && this.config.deviceId && this.config.cloudRegistryUrl) {
-            console.log(`[UDP P2P] 我的公网地址: ${myPublicAddr.ip}:${myPublicAddr.port}`);
-            // Step 2: 上报云端
+            this.emit('log', `我的公网地址: ${myPublicAddr.ip}:${myPublicAddr.port}`);
             try {
               await fetch(`${this.config.cloudRegistryUrl}/api/punch`, {
                 method: 'POST',
@@ -307,10 +269,12 @@ export class UdpP2PClient extends EventEmitter {
                   client_port: myPublicAddr.port,
                 }),
               });
-              console.log('[UDP P2P] 公网地址已上报云端，等待后端 PUNCH...');
+              this.emit('log', '公网地址已上报云端，等待后端 PUNCH...');
             } catch (e) {
-              console.warn('[UDP P2P] 上报云端失败，继续尝试直接发 HELLO:', e);
+              this.emit('log', `上报云端失败: ${e instanceof Error ? e.message : String(e)}`);
             }
+          } else if (!myPublicAddr) {
+            this.emit('log', 'STUN 查询公网地址失败，直接发 HELLO');
           }
 
           // Step 3: 发 HELLO（无论上报是否成功）
@@ -321,19 +285,19 @@ export class UdpP2PClient extends EventEmitter {
           });
           this.socket.send(hello, 0, hello.length, port, ip, (err: Error | null) => {
             if (err) {
-              console.error('[UDP P2P] 发送 HELLO 失败:', err);
+              this.emit('log', `发送 HELLO 失败: ${err.message}`);
               clearTimeout(timer);
               this._closeSocket();
               resolve(null);
             } else {
-              console.log(`[UDP P2P] HELLO 已发送到 ${ip}:${port}`);
+              this.emit('log', `HELLO 已发送到 ${ip}:${port}，等待 ACK...`);
             }
           });
         });
 
         this.socket.bind(0);
       } catch (e) {
-        console.error('[UDP P2P] 连接失败:', e);
+        this.emit('log', `连接异常: ${e instanceof Error ? e.message : String(e)}`);
         resolve(null);
       }
     });
@@ -362,6 +326,7 @@ export class UdpP2PClient extends EventEmitter {
 
         // 临时监听 STUN 响应（原始 Buffer）
         const onStunMessage = (data: Buffer) => {
+          this.emit('log', `STUN收到包: len=${data.length} type=${typeof data} first=${data[0]},${data[1]}`);
           if (data.length < 20) return;
           // 检查是否是 STUN Binding Response (0x0101)
           if (data[0] !== 0x01 || data[1] !== 0x01) return;
