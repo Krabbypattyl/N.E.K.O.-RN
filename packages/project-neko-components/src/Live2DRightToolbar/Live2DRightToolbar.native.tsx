@@ -101,6 +101,7 @@ export function Live2DRightToolbar({
       voiceClone: require('../../../../assets/icons/set_off.png'),
       memoryBrowser: require('../../../../assets/icons/set_off.png'),
       steamWorkshop: require('../../../../assets/icons/set_off.png'),
+      connectionHelp: require('../../../../assets/icons/set_off.png'),
     },
   });
 

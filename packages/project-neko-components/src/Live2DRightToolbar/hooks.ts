@@ -313,6 +313,11 @@ export function useSettingsMenuItems<TIcon = ToolbarIcon>(
         label: tOrDefault(t, 'settings.menu.steamWorkshop', '创意工坊'),
         icon: mkIcon('steamWorkshop', 'Steam_icon_logo.png'),
       },
+      {
+        id: 'connectionHelp' as const,
+        label: tOrDefault(t, 'settings.menu.connectionHelp', '连接帮助'),
+        icon: mkIcon('connectionHelp', 'set_off.png'),
+      },
     ];
   }, [t, iconBasePath, icons]);
 }

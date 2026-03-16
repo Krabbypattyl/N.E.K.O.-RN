@@ -969,6 +969,17 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
       doReload();
       return;
     }
+    if (id === 'connectionHelp') {
+      Alert.alert(
+        '连接帮助',
+        '如果手机无法连接电脑，可能是网络环境限制（Symmetric NAT）。\n\n' +
+        '解决方法：在电脑端安装内网穿透工具：\n' +
+        '• cpolar（推荐）: cpolar.com\n' +
+        '• natapp: natapp.cn\n\n' +
+        '安装后将本地端口 48920 映射到公网，用获取的公网地址重新扫码连接。'
+      );
+      return;
+    }
 
     Alert.alert('功能提示', `即将打开: ${id}`);
   }, [config, toolbarMicEnabled, mainManager, chat, audio, syncLive2dModel]);

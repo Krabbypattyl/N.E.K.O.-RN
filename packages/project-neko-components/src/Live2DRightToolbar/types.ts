@@ -36,7 +36,8 @@ export type Live2DSettingsMenuId =
   | "reload"
   | "voiceClone"
   | "memoryBrowser"
-  | "steamWorkshop";
+  | "steamWorkshop"
+  | "connectionHelp";
 
 export interface Live2DRightToolbarProps {
   visible?: boolean;
