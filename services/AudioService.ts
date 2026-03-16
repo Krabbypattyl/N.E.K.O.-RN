@@ -8,6 +8,19 @@ import { requestMicrophonePermission } from '@/utils/permissions';
 import type { DevConnectionConfig } from '@/utils/devConnectionConfig';
 
 /**
+ * 内部音频服务类型 —— createNativeAudioService / createWebAudioService
+ * 返回值的联合类型。避免在订阅事件时使用 `as any`。
+ */
+type InternalAudioService = CrossPlatformAudioService & {
+  on: (
+    event: 'state' | 'inputAmplitude' | 'outputAmplitude',
+    handler: (payload: { state?: string; amplitude?: number }) => void,
+  ) => () => void;
+  detach?: () => void;
+  getState?: () => string;
+};
+
+/**
  * AudioService 配置接口
  */
 export interface AudioServiceConfig {
@@ -18,9 +31,11 @@ export interface AudioServiceConfig {
   p2p?: DevConnectionConfig['p2p'];
   onConnectionChange?: (isConnected: boolean) => void;
   onMessage?: (event: MessageEvent) => void;
-  onError?: (error: any) => void;
+  onError?: (error: unknown) => void;
   onRecordingStateChange?: (isRecording: boolean) => void;
   onAudioStatsUpdate?: (stats: AudioStats) => void;
+  /** Stats 轮询间隔（ms）。默认 1000。设为 0 可禁用。 */
+  statsIntervalMs?: number;
 }
 
 /**
@@ -64,7 +79,7 @@ export class AudioService {
   private isSessionActive: boolean = false;
 
   // 新版跨平台 audio-service（Native/Web 都走这一套）
-  private audioService: (CrossPlatformAudioService & { detach?: () => void }) | null = null;
+  private audioService: InternalAudioService | null = null;
   private isRecording: boolean = false;
   private lastSpeechDetectedAt: number = 0;
   private lastKnownOutputAmp: number = 0;
@@ -174,40 +189,38 @@ export class AudioService {
 
       // Native / Web 分流（Expo Web 走 WebAudio + getUserMedia）
       if (Platform.OS === 'web') {
-        const svc = createWebAudioService({
+        this.audioService = createWebAudioService({
           client,
           isMobile: true,
-          // focusMode：播放时尽量不回传麦克风（避免“边听边说”的回声/打断）
+          // focusMode：播放时尽量不回传麦克风（避免"边听边说"的回声/打断）
           focusModeEnabled: true,
-        }) as any;
-        this.audioService = svc;
+        }) as InternalAudioService;
       } else {
-        const svc = createNativeAudioService({
+        this.audioService = createNativeAudioService({
           client,
           // 与当前 RN 侧约定保持一致：
           // - recordTargetRate 16k（上行）
           // - playbackSampleRate 48k（下行 PCM）
           recordTargetRate: 16000,
           playbackSampleRate: 48000,
-        }) as any;
-        this.audioService = svc;
+        }) as InternalAudioService;
       }
 
       // 订阅状态：用于兼容旧的 getIsRecording/isPlaying 等
-      if ((this.audioService as any)?.on) {
-        (this.audioService as any).on('state', ({ state }: any) => {
+      if (this.audioService?.on) {
+        this.audioService.on('state', ({ state }: { state?: string }) => {
           const isRec = state === 'recording';
           this.isRecording = isRec;
           this.config.onRecordingStateChange?.(isRec);
         });
 
-        (this.audioService as any).on('inputAmplitude', ({ amplitude }: any) => {
+        this.audioService.on('inputAmplitude', ({ amplitude }: { amplitude?: number }) => {
           // amplitude > 0 仅用于粗略 UI/调试，不作为严格判定
           const hasVoice = typeof amplitude === 'number' && amplitude > 0.02;
           if (hasVoice) this.lastSpeechDetectedAt = Date.now();
         });
 
-        (this.audioService as any).on('outputAmplitude', ({ amplitude }: any) => {
+        this.audioService.on('outputAmplitude', ({ amplitude }: { amplitude?: number }) => {
           this.lastKnownOutputAmp = typeof amplitude === 'number' ? amplitude : 0;
           if (this.lastKnownOutputAmp > 0.01) {
             this.lastOutputAmpPositiveAt = Date.now();
@@ -238,7 +251,7 @@ export class AudioService {
       if (stats) {
         this.config.onAudioStatsUpdate?.(stats);
       }
-    }, 500);
+    }, this.config.statsIntervalMs ?? 1000);
   }
 
   /**
@@ -312,8 +325,8 @@ export class AudioService {
       // 与旧版协议保持一致：停止录音时显式结束会话（服务端通常会清理上下文）
       try {
         this.wsService?.getRealtimeClient()?.sendJson({ action: 'end_session' });
-      } catch (_e) {
-        // ignore
+      } catch (e) {
+        console.debug('[AudioService] Failed to send end_session (non-fatal):', e);
       }
       this.isSessionActive = false;
       
@@ -416,7 +429,7 @@ export class AudioService {
   /**
    * 处理状态更新消息
    */
-  handleStatusUpdate(data: any): void {
+  handleStatusUpdate(data: unknown): void {
     // 处理状态更新逻辑
     console.log('📊 状态更新:', data);
   }
@@ -583,7 +596,7 @@ export class AudioService {
 
     // 停止录音/播放并解绑监听（在局部引用上操作，避免 use-after-free）
     if (wasRecording && audioSvc) {
-      audioSvc.stopVoiceSession().catch((err: any) => {
+      audioSvc.stopVoiceSession().catch((err: unknown) => {
         console.error('停止录音失败:', err);
       });
     }
