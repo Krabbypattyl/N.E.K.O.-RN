@@ -131,7 +131,7 @@ export function useToolbarButtons<TIcon = ToolbarIcon>({
         },
         {
           id: 'screen' as const,
-          title: tOrDefault(t, 'buttons.screenShare', '屏幕分享'),
+          title: tOrDefault(t, 'buttons.cameraShare', '摄像头'),
           hidden: false,
           active: screenEnabled,
           onClick: () => onToggleScreen(!screenEnabled),

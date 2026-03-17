@@ -847,9 +847,9 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
 
   const handleToggleScreen = useCallback(async (next: boolean) => {
     if (!next) {
-      // 停止屏幕分享
+      // 停止摄像头
       cameraStream.stopStreaming();
-      statusToastRef.current?.show('已停止屏幕分享', 2000);
+      statusToastRef.current?.show('已停止摄像头', 2000);
       return;
     }
 
@@ -866,14 +866,14 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
           text: '前置摄像头',
           onPress: () => {
             cameraStream.startStreaming('front');
-            statusToastRef.current?.show('前置摄像头已开始分享', 2000);
+            statusToastRef.current?.show('前置摄像头已开启', 2000);
           },
         },
         {
           text: '后置摄像头',
           onPress: () => {
             cameraStream.startStreaming('back');
-            statusToastRef.current?.show('后置摄像头已开始分享', 2000);
+            statusToastRef.current?.show('后置摄像头已开启', 2000);
           },
         },
         {
@@ -1317,8 +1317,8 @@ const MainUIScreen: React.FC<MainUIScreenProps> = () => {
         />
       </View>
 
-      {/* 隐藏的摄像头视图（无预览模式）- 移到屏幕外，完全不可见 */}
-      {cameraStream.hasPermission && (
+      {/* 隐藏的摄像头视图（无预览模式）- 只在流传输时挂载，避免白占摄像头资源 */}
+      {cameraStream.shouldMount && cameraStream.hasPermission && (
         <CameraView
           ref={cameraStream.cameraRef}
           style={{
