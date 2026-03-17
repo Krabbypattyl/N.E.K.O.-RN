@@ -1,4 +1,5 @@
 import { CameraView } from 'expo-camera';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 export type CameraStreamStatus = 'idle' | 'streaming' | 'paused' | 'error';
 
@@ -31,7 +32,7 @@ export class CameraStreamService {
 
   constructor(config: CameraStreamConfig) {
     this.config = config;
-    this.frameInterval = config.frameInterval ?? 15000; // 默认 15s
+    this.frameInterval = config.frameInterval ?? 5000; // 默认 5s
   }
 
   private setStatus(status: CameraStreamStatus) {
@@ -132,25 +133,38 @@ export class CameraStreamService {
 
       console.log('📷 开始捕获...');
 
-      // Step 2: 拍照（最低质量）
+      // Step 2: 拍照（跳过处理，拿原始帧）
       const photo = await this.cameraRef.takePictureAsync({
-        base64: true,
-        quality: 0.1,        // 极低质量，减少处理时间
+        base64: false,
+        quality: 1,
         shutterSound: false,
         skipProcessing: true,
       });
 
-      // Step 3: 立即让出主线程
+      // Step 3: 让出主线程
       await yieldToMain(100);
 
-      if (!photo.base64) {
+      if (!photo.uri) {
         console.warn('⚠️ 拍照失败');
         return;
       }
 
-      // Step 4: 构造消息（同步操作，但很快）
-      const base64WithPrefix = `data:image/jpeg;base64,${photo.base64}`;
-      const sizeKB = Math.round(photo.base64.length * 0.75 / 1024);
+      // Step 4: resize 到 512px 以内，压缩到 ~50-100KB
+      const resized = await ImageManipulator.manipulateAsync(
+        photo.uri,
+        [{ resize: { width: 512 } }],
+        { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG, base64: true }
+      );
+
+      await yieldToMain(50);
+
+      if (!resized.base64) {
+        console.warn('⚠️ 压缩失败');
+        return;
+      }
+
+      const base64WithPrefix = `data:image/jpeg;base64,${resized.base64}`;
+      const sizeKB = Math.round(resized.base64.length * 0.75 / 1024);
 
       console.log('📷 帧完成:', `${sizeKB}KB`);
 

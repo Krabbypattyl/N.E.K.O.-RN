@@ -24,6 +24,8 @@ export interface UseCameraStreamReturn {
   hasPermission: boolean | null;
   isCameraReady: boolean;
   checkAndRequestPermission: () => Promise<boolean>;
+  /** CameraView 是否应该挂载（用于条件渲染，避免占用摄像头资源） */
+  shouldMount: boolean;
 }
 
 /**
@@ -41,6 +43,8 @@ export function useCameraStream(
   const [error, setError] = useState<string | null>(null);
   const [facing, setFacing] = useState<CameraType>('front');
   const [isCameraReady, setIsCameraReady] = useState(false);
+  // 控制 CameraView 挂载（只在需要时挂载，避免白占摄像头资源）
+  const [shouldMount, setShouldMount] = useState(false);
 
   // 使用 ref 存储配置，避免闭包过期
   const sendMessageRef = useRef(config.sendMessage);
@@ -67,7 +71,7 @@ export function useCameraStream(
         setError(err.message);
         setStatus('error');
       },
-      frameInterval: 10000, // 10s，大幅降低频率避免阻塞主线程
+      frameInterval: 5000, // 5s
     });
 
     serviceRef.current = service;
@@ -78,33 +82,31 @@ export function useCameraStream(
     };
   }, []);
 
-  // CameraView 就绪回调
+  // CameraView 就绪回调 —— 此时 CameraView 已挂载，可以启动服务
   const onCameraReady = useCallback(() => {
     console.log('📹 CameraView 已就绪');
     setIsCameraReady(true);
+    if (serviceRef.current && cameraRef.current) {
+      serviceRef.current.setCameraRef(cameraRef.current);
+      serviceRef.current.start();
+    }
   }, []);
 
-  // 开始流式传输
+  // 开始流式传输：设置方向 + 触发 CameraView 挂载，实际启动由 onCameraReady 完成
   const startStreaming = useCallback((selectedFacing?: CameraType) => {
-    console.log('📹 启动摄像头流，方向:', selectedFacing || facing);
-
+    console.log('📹 请求启动摄像头流，方向:', selectedFacing || facing);
+    setIsCameraReady(false);
     if (selectedFacing) {
       setFacing(selectedFacing);
     }
-
-    // 延迟启动，确保 CameraView 已就绪（如果刚改变 facing）
-    setTimeout(() => {
-      if (serviceRef.current && cameraRef.current) {
-        serviceRef.current.setCameraRef(cameraRef.current);
-        serviceRef.current.start();
-      }
-    }, 100);
+    setShouldMount(true);
   }, [facing]);
 
   // 停止流式传输
   const stopStreaming = useCallback(() => {
     console.log('📹 停止摄像头流');
     serviceRef.current?.stop();
+    setShouldMount(false);
     setError(null);
   }, []);
 
@@ -172,5 +174,6 @@ export function useCameraStream(
     hasPermission: permission?.granted ?? null,
     isCameraReady,
     checkAndRequestPermission,
+    shouldMount,
   };
 }
